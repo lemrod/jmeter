@@ -28,5 +28,9 @@ dependencies {
     api("jakarta.jms:jakarta.jms-api")
     implementation("com.miglayout:miglayout-swing")
 
+    implementation("commons-codec:commons-codec") {
+        because("Hex")
+    }
+
     testImplementation(testFixtures(projects.src.core))
 }

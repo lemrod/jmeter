@@ -17,18 +17,24 @@
 
 package org.apache.jmeter.protocol.jms;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
 
 import javax.naming.Context;
 import javax.naming.NamingException;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.protocol.jms.sampler.JMSProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jakarta.jms.BytesMessage;
 import jakarta.jms.Connection;
 import jakarta.jms.Destination;
 import jakarta.jms.JMSException;
@@ -36,6 +42,7 @@ import jakarta.jms.Message;
 import jakarta.jms.MessageConsumer;
 import jakarta.jms.MessageProducer;
 import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 
 /**
  * Utility methods for JMS protocol.
@@ -52,8 +59,8 @@ public final class Utils {
 
     private static final Logger log = LoggerFactory.getLogger(Utils.class);
 
-    public static void close(MessageConsumer closeable, Logger log){
-        if (closeable != null){
+    public static void close(MessageConsumer closeable, Logger log) {
+        if (closeable != null) {
             try {
                 closeable.close();
             } catch (JMSException e) {
@@ -63,7 +70,7 @@ public final class Utils {
     }
 
     public static void close(Session closeable, Logger log) {
-        if (closeable != null){
+        if (closeable != null) {
             try {
                 closeable.close();
             } catch (JMSException e) {
@@ -73,7 +80,7 @@ public final class Utils {
     }
 
     public static void close(Connection closeable, Logger log) {
-        if (closeable != null){
+        if (closeable != null) {
             try {
                 closeable.close();
             } catch (JMSException e) {
@@ -84,10 +91,10 @@ public final class Utils {
 
     /**
      * @param closeable {@link MessageProducer}
-     * @param log {@link Logger}
+     * @param log       {@link Logger}
      */
     public static void close(MessageProducer closeable, Logger log) {
-        if (closeable != null){
+        if (closeable != null) {
             try {
                 closeable.close();
             } catch (JMSException e) {
@@ -96,30 +103,30 @@ public final class Utils {
         }
     }
 
-    public static String messageProperties(Message msg){
+    public static String messageProperties(Message msg) {
         return messageProperties(new StringBuilder(), msg).toString();
     }
 
     @SuppressWarnings("JdkObsolete")
-    public static StringBuilder messageProperties(StringBuilder sb, Message msg){
+    public static StringBuilder messageProperties(StringBuilder sb, Message msg) {
         requestHeaders(sb, msg);
         sb.append("Properties:\n");
         Enumeration<?> rme;
         try {
             rme = msg.getPropertyNames();
-            while(rme.hasMoreElements()){
-                String name=(String) rme.nextElement();
+            while (rme.hasMoreElements()) {
+                String name = (String) rme.nextElement();
                 sb.append(name).append('\t');
-                String value=msg.getStringProperty(name);
+                String value = msg.getStringProperty(name);
                 sb.append(value).append('\n');
             }
         } catch (JMSException e) {
-            sb.append("\nError: "+e.toString());
+            sb.append("\nError: " + e.toString());
         }
         return sb;
     }
 
-    public static StringBuilder requestHeaders(StringBuilder sb, Message msg){
+    public static StringBuilder requestHeaders(StringBuilder sb, Message msg) {
         try {
             sb.append("JMSCorrelationId ").append(msg.getJMSCorrelationID()).append('\n');
             sb.append("JMSMessageId     ").append(msg.getJMSMessageID()).append('\n');
@@ -129,7 +136,7 @@ public final class Utils {
             sb.append("JMSPriority      ").append(msg.getJMSPriority()).append('\n');
             sb.append("JMSDestination   ").append(msg.getJMSDestination()).append('\n');
         } catch (JMSException e) {
-            sb.append("\nError: "+e.toString());
+            sb.append("\nError: " + e.toString());
         }
         return sb;
     }
@@ -138,19 +145,20 @@ public final class Utils {
      * Method will lookup a given destination (topic/queue) using JNDI.
      *
      * @param context
-     *            context to use for lookup
+     *                context to use for lookup
      * @param name
-     *            the destination name
+     *                the destination name
      * @return the destination, never null
      * @throws NamingException
-     *             if the name cannot be found as a Destination
+     *                         if the name cannot be found as a Destination
      */
     public static Destination lookupDestination(Context context, String name) throws NamingException {
         Object o = context.lookup(name);
         if (o instanceof Destination destination) {
             return destination;
         }
-        throw new NamingException("Found: "+name+"; expected Destination, but was: "+(o!=null ? o.getClass().getName() : "null"));
+        throw new NamingException(
+                "Found: " + name + "; expected Destination, but was: " + (o != null ? o.getClass().getName() : "null"));
     }
 
     /**
@@ -158,21 +166,24 @@ public final class Utils {
      * compliant JNDI implementations
      *
      * @param context
-     *            context to use
+     *                context to use
      * @param key
-     *            key to lookup in contexts environment
-     * @return String or <code>null</code> if context.getEnvironment() is not compliant
+     *                key to lookup in contexts environment
+     * @return String or <code>null</code> if context.getEnvironment() is not
+     *         compliant
      * @throws NamingException
-     *             if a naming problem occurs while getting the environment
+     *                         if a naming problem occurs while getting the
+     *                         environment
      */
     @SuppressWarnings("JdkObsolete")
     public static String getFromEnvironment(Context context, String key) throws NamingException {
         try {
-            Hashtable<?,?> env = context.getEnvironment();
-            if(env != null) {
+            Hashtable<?, ?> env = context.getEnvironment();
+            if (env != null) {
                 return (String) env.get(key);
             } else {
-                log.warn("context.getEnvironment() returned null (should not happen according to javadoc but non compliant implementation can return this)");
+                log.warn(
+                        "context.getEnvironment() returned null (should not happen according to javadoc but non compliant implementation can return this)");
                 return null;
             }
         } catch (javax.naming.OperationNotSupportedException ex) {
@@ -186,14 +197,15 @@ public final class Utils {
      * Obtain the queue connection from the context and factory name.
      *
      * @param ctx
-     *            context to use
+     *                    context to use
      * @param factoryName
-     *            name of the object factory to look up in <code>context</code>
+     *                    name of the object factory to look up in
+     *                    <code>context</code>
      * @return the queue connection
      * @throws JMSException
-     *             when creation of the connection fails
+     *                         when creation of the connection fails
      * @throws NamingException
-     *             when lookup in context fails
+     *                         when lookup in context fails
      */
     public static Connection getConnection(Context ctx, String factoryName) throws JMSException, NamingException {
         Object objfac;
@@ -204,7 +216,7 @@ public final class Utils {
         }
         if (objfac instanceof jakarta.jms.ConnectionFactory connectionFactory) {
             String username = getFromEnvironment(ctx, Context.SECURITY_PRINCIPAL);
-            if(username != null) {
+            if (username != null) {
                 String password = getFromEnvironment(ctx, Context.SECURITY_CREDENTIALS);
                 return connectionFactory.createConnection(username, password);
             }
@@ -217,9 +229,11 @@ public final class Utils {
 
     /**
      * Set JMS Properties to msg
+     *
      * @param msg Message to operate on
      * @param map Map of Properties to be set on the message
-     * @throws JMSException when <code>msg</code> throws a {@link JMSException} while the properties get set
+     * @throws JMSException when <code>msg</code> throws a {@link JMSException}
+     *                      while the properties get set
      */
     public static void addJMSProperties(Message msg, Map<String, Object> map) throws JMSException {
         if (map == null) {
@@ -232,31 +246,97 @@ public final class Utils {
                 log.debug("Adding property [{}={}]", name, value);
             }
 
-            // Some JMS implemenations do not allow certain header fields to be set using properties
-            // e.g.: WebsphereMQ does not allow corr. id. to be set using setStringProperty()
+            // Some JMS implemenations do not allow certain header fields to be set using
+            // properties
+            // e.g.: WebsphereMQ does not allow corr. id. to be set using
+            // setStringProperty()
             if ("JMSCorrelationID".equalsIgnoreCase(name)) { // $NON-NLS-1$
-                msg.setJMSCorrelationID((String)value);
+                msg.setJMSCorrelationID((String) value);
             } else if ("JMSType".equalsIgnoreCase(name)) { // $NON-NLS-1$
-                msg.setJMSType((String)value);
+                msg.setJMSType((String) value);
             } else {
                 msg.setObjectProperty(name, value);
             }
         }
     }
 
-
     /**
      * Converts {@link Arguments} to {@link JMSProperties} defaulting to String type
      * Used to convert version &lt;= 2.10 test plans
+     *
      * @param args {@link Arguments} to be converted
      * @return jmsProperties The converted {@link JMSProperties}
      */
     public static JMSProperties convertArgumentsToJmsProperties(Arguments args) {
         JMSProperties jmsProperties = new JMSProperties();
-        Map<String,String>  map = args.getArgumentsAsMap();
+        Map<String, String> map = args.getArgumentsAsMap();
         for (Map.Entry<String, String> entry : map.entrySet()) {
             jmsProperties.addJmsProperty(entry.getKey(), entry.getValue());
         }
         return jmsProperties;
+    }
+
+    public static byte[] decodeHexString(String hex) {
+        try {
+            return Hex.decodeHex(hex.replaceAll("\\s", "").toCharArray());
+        } catch (DecoderException e) {
+            throw new IllegalArgumentException("Content is not a valid hex string", e);
+        }
+    }
+
+    public static String encodeHexString(byte[] bytes) {
+        return Hex.encodeHexString(bytes);
+    }
+
+    public static byte[] getBodyAsByteArray(Message msg) {
+        try {
+            if (msg instanceof TextMessage textMsg) {
+                String text = textMsg.getText();
+                return text != null ? text.getBytes(StandardCharsets.UTF_8) : null;
+            } else if (msg instanceof BytesMessage bytesMsg) {
+                List<Byte> bytesList = new ArrayList<>();
+                bytesMsg.reset();
+                try {
+                    while (true) {
+                        bytesList.add(bytesMsg.readByte());
+                    }
+                } catch (Exception e) {
+                    // End of stream reached
+                }
+                byte[] bytes = new byte[bytesList.size()];
+                for (int i = 0; i < bytesList.size(); i++) {
+                    bytes[i] = bytesList.get(i);
+                }
+                return bytes;
+            } else {
+                // log.warn("Error while retrieving message body");
+                return null;
+            }
+        } catch (Exception e) {
+            // log.warn("Exception while retrieving message body", e);
+            return null;
+        }
+    }
+
+    public static String hexdump(byte[] byteArray) {
+        StringBuilder lines = new StringBuilder();
+        int offset = 0;
+        for (int i = 0; i < byteArray.length; i += 16) {
+            int chunkSize = Math.min(16, byteArray.length - i);
+            StringBuilder hex = new StringBuilder();
+            StringBuilder ascii = new StringBuilder();
+            for (int j = 0; j < chunkSize; j++) {
+                int b = byteArray[i + j] & 0xFF;
+                hex.append(String.format("%02X ", b));
+                ascii.append((b >= 32 && b <= 126) ? (char) b : '.');
+            }
+            // Pad hex to 47 characters (16*3 - 1 = 47)
+            while (hex.length() < 47) {
+                hex.append(' ');
+            }
+            lines.append(String.format("%08X  %-47s |%-16s|%n", offset, hex, ascii));
+            offset += chunkSize;
+        }
+        return lines.toString();
     }
 }

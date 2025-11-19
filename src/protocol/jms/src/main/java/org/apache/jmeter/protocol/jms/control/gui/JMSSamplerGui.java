@@ -97,6 +97,8 @@ public class JMSSamplerGui extends AbstractSamplerGui {
 
     private JCheckBox useResMsgIdAsCorrelId;
 
+    private JCheckBox useBytesMessages;
+
     public JMSSamplerGui() {
         init();
     }
@@ -143,6 +145,7 @@ public class JMSSamplerGui extends AbstractSamplerGui {
         element.setNonPersistent(useNonPersistentDelivery.isSelected());
         element.setUseReqMsgIdAsCorrelId(useReqMsgIdAsCorrelId.isSelected());
         element.setUseResMsgIdAsCorrelId(useResMsgIdAsCorrelId.isSelected());
+        element.setUseBytesMessages(useBytesMessages.isSelected());
         element.setTimeout(timeout.getText());
         element.setExpiration(expiration.getText());
         element.setPriority(priority.getText());
@@ -198,6 +201,7 @@ public class JMSSamplerGui extends AbstractSamplerGui {
         useNonPersistentDelivery.setSelected(sampler.isNonPersistent());
         useReqMsgIdAsCorrelId.setSelected(sampler.isUseReqMsgIdAsCorrelId());
         useResMsgIdAsCorrelId.setSelected(sampler.isUseResMsgIdAsCorrelId());
+        useBytesMessages.setSelected(sampler.isUseBytesMessages());
 
         timeout.setText(sampler.getTimeout());
         expiration.setText(sampler.getExpiration());
@@ -252,8 +256,11 @@ public class JMSSamplerGui extends AbstractSamplerGui {
 
         useResMsgIdAsCorrelId = new JCheckBox(JMeterUtils.getResString("jms_use_res_msgid_as_correlid"), false); //$NON-NLS-1$
 
+        useBytesMessages = new JCheckBox("jms_use_bytes_message", false);
+
         correlationPanel.add(useReqMsgIdAsCorrelId);
         correlationPanel.add(useResMsgIdAsCorrelId);
+        correlationPanel.add(useBytesMessages);
 
         JPanel communicationStylePanel = new JPanel();
         communicationStylePanel.add(jmsCommunicationStyle);
